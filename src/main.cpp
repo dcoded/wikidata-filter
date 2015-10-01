@@ -54,6 +54,7 @@ bool target(const std::string& line, const std::vector<std::string>& categories)
 {
     for(std::string category : categories)
     {
+        category = '"' + category + '"';
         if(line.find(category) != std::string::npos)
         {
             return true;
