@@ -30,6 +30,7 @@ int main(int argc, char** argv)
     int i = 0;
     for(std::string line; getline(decompressor, line); i++)
     {
+        std::cout << "Scanning line..." << i << "          \r";
         if(target(line, categories))
         {
             std::cout << line << "\n";
