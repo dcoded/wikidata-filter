@@ -47,7 +47,6 @@ public:
         std::cout << "** wikidata_filter::filter/read_json() **\n";
         try
         {
-            std::cout << line << "\n";
             std::istringstream ijsonstream (line);
             read_json (ijsonstream, jsontree);
         }
