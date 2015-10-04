@@ -1,133 +1,51 @@
-#include <fstream>
-#include <iostream>
-#include <vector>
-#include <string>
-#include <exception>
+#include <dcoady/gzip/istream.h>
+#include <dcoady/ctype/line.h>
+#include <wikidata_filter.h>
+
 #include <algorithm>
-#include <boost/iostreams/filtering_stream.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
+#include <iterator>
+#include <iostream>
+#include <functional>
 
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
 
-using boost::iostreams::input;
-using boost::iostreams::filtering_stream;
 
-using boost::property_tree::ptree;
-using boost::property_tree::read_json;
-using boost::property_tree::write_json;
+ 
 
-#define PROPERTY_SUBCLASS_OF       "claims.P279"
-#define PROPERTY_SUBCLASS_OF_VALUE "mainsnak.datavalue.value.numeric-id"
-
-bool target(const ptree&, const std::vector<std::string>&);
-
-template<typename T>
-bool in_vector(const std::vector<T>& vector, const T item)
+void line_fn(std::string line)
 {
-    auto it = std::find(vector.begin(), vector.end(), item);
-    return (it != vector.end());
+    std::cout << line << "\n##########\n###########\n###########\n###########\n";
 }
 
-int main(int argc, char** argv)
+int main(int argc, char* argv[])
 {
-    if (argc < 3)
-    {
-        std::cout << "Usage: ./" << argv[0] << "<filename> <category ID>\n";
-        exit(0);
-    }
-
     const char* filename = argv[1];
-    const char* category = argv[2];
+    const char* savefile = argv[2];
+    const char* idlist   = argv[3];
 
-    std::ofstream matches(std::string(category) + ".json");
+    wikidata_filter wdf(savefile);
 
-    std::ifstream file;
-    file.exceptions(std::ios::failbit | std::ios::badbit);
-    file.open(filename, std::ios_base::in | std::ios_base::binary);
+    std::ifstream ids(idlist);
+    std::for_each(std::istream_iterator<std::string>(ids),
+              std::istream_iterator<std::string>(),
+              [&wdf](std::string id) { wdf.add(id); });
 
-    filtering_stream<input> decompressor;
-    decompressor.push(boost::iostreams::gzip_decompressor());
-    decompressor.push(file);
+    wdf.sort();
 
-    std::vector<std::string> categories = { category };
-    std::vector<std::string> matched    = { }; 
+    dcoady::gzip::istream gunzip(filename);
+    gunzip.imbue(std::locale(std::locale(), new dcoady::ctype::line()));
 
-    for(std::string line; getline(decompressor, line);)
-    {
-        ptree jsontree;
-        std::istringstream ijsonstream (line);
-        read_json (ijsonstream, jsontree);
+    std::cout << "** std::for_each begin **\n";
+    std::for_each(std::istream_iterator<std::string>(gunzip),
+                  std::istream_iterator<std::string>(),
+                  [&wdf](std::string line){ wdf.filter(line); });
+    std::cout << "** std::for_each end **\n";
 
-        // get line id
-        std::string entity_id = jsontree.get<std::string>("id");
-        std::string subclass_id;
-
-        std::cout << "[" << entity_id << "]\n";
-
-        if (in_vector(categories, entity_id))
-            continue; // we already added it
-        
-        for(auto v : jsontree.get_child(PROPERTY_SUBCLASS_OF))
-        {
-            subclass_id = v.second.get<std::string>(PROPERTY_SUBCLASS_OF_VALUE);
-
-            // is it a child of root target?
-            if (in_vector(categories, subclass_id))
-            {
-                std::cout << "+" << entity_id << " subclass_of " << subclass_id << "\n";
-                categories.push_back(entity_id);
-
-                decompressor.clear();
-                decompressor.seekg(0, std::ios::beg); // restart
-            }
-        }
-    }
-    std::cout << "**end**\n";
-
-    // int i = 1;
-    // for(std::string line; getline(decompressor, line); i++)
-    // {
-    //     ptree jsontree;
-    //     std::istringstream ijsonstream (line);
-    //     read_json (ijsonstream, jsontree);
-
-    //     if(target(jsontree, categories))
-    //     {
-    //         // restart from beginning...
-    //         decompressor.seekg (0, decompressor.end);
-
-    //         // save match to file
-    //         matches << line << "\n";
-
-    //         std::string entity_id = jsontree.get<std::string>("id");
-    //         categories.push_back(entity_id);
-
-
-    //         std::cout << "+" << entity_id.substr(1) << "\n";
-            
-    //     }
-    // }
-
-    matches.close();
+    return 0;
 }
 
-bool target(const ptree& jsontree, const std::vector<std::string>& categories)
+
+void filter()
 {
-    std::string subclass_id;
-    for(auto v : jsontree.get_child(PROPERTY_SUBCLASS_OF))
-    {
-        subclass_id = v.second.get<std::string>(PROPERTY_SUBCLASS_OF_VALUE);
 
-        // is it a child of root target?
-        auto it = std::find(
-            categories.begin(),
-            categories.end(),
-            subclass_id);
-
-        // we found a target if its in the categories list
-        return (it != categories.end());
-    }
-
-    return false;
 }
+
