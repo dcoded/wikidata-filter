@@ -38,27 +38,39 @@ public:
 
     void filter(std::string line)
     {
+        ptree jsontree;
+        std::string entity_id;
+
+        std::cout << "** wikidata_filter::filter/read_json() **\n";
         try
         {
-            ptree jsontree;
             std::istringstream ijsonstream (line);
             read_json (ijsonstream, jsontree);
-
-
-
-            // get line id
-            std::string entity_id = jsontree.get<std::string>("id");
-
-
-            if(std::binary_search(id_list_.begin(), id_list_.end(), entity_id))
-            {
-                savefile_ << line << std::endl;
-                std::cout << "+" << entity_id << "; " << saved_++ << " of " << id_list_.size() << "\n";
-            }
         }
         catch(boost::exception& ex)
         {
-            std::cerr << "[error] " << boost::diagnostic_information(ex) << "\n";
+            std::cout << "[error] property_tree::read_json()\n";
+            return;
+        }
+
+        std::cout << "** wikidata_filter::filter/get(id) **\n";
+        try
+        {
+            // get line id
+            entity_id = jsontree.get<std::string>("id");
+        }
+        catch(boost::exception& ex)
+        {
+            std::cout << "[error] property_tree::get(id)\n";
+            return;
+        }
+
+        std::cout << "** wikidata_filter::filter/binary_search() **\n";
+        if(std::binary_search(id_list_.begin(), id_list_.end(), entity_id))
+        {
+            std::cout << "** wikidata_filter::filter/savefile() **\n";
+            savefile_ << line << std::endl;
+            std::cout << "+" << entity_id << "; " << saved_++ << " of " << id_list_.size() << "\n";
         }
     }
 private:
