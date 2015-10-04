@@ -41,6 +41,9 @@ public:
         ptree jsontree;
         std::string entity_id;
 
+        // trim comma at end of line
+        line.pop_back();
+
         std::cout << "** wikidata_filter::filter/read_json() **\n";
         try
         {
