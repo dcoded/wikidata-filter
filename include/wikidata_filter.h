@@ -37,18 +37,28 @@ public:
 
     void filter(std::string line)
     {
-        ptree jsontree;
-        std::istringstream ijsonstream (line);
-        read_json (ijsonstream, jsontree);
 
-        // get line id
-        std::string entity_id = jsontree.get<std::string>("id");
-
-
-        if(std::binary_search(id_list_.begin(), id_list_.end(), entity_id))
+        try
         {
-            savefile_ << line << std::endl;
-            std::cout << "+" << entity_id << "; " << saved_++ << " of " << id_list_.size() << "\n";
+            ptree jsontree;
+            std::istringstream ijsonstream (line);
+            read_json (ijsonstream, jsontree);
+
+
+
+            // get line id
+            std::string entity_id = jsontree.get<std::string>("id");
+
+
+            if(std::binary_search(id_list_.begin(), id_list_.end(), entity_id))
+            {
+                savefile_ << line << std::endl;
+                std::cout << "+" << entity_id << "; " << saved_++ << " of " << id_list_.size() << "\n";
+            }
+        }
+        catch(...)
+        {
+            
         }
     }
 private:
