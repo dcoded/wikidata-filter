@@ -3,6 +3,7 @@
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/exception/all.hpp>
 
 namespace
 {
@@ -37,7 +38,6 @@ public:
 
     void filter(std::string line)
     {
-
         try
         {
             ptree jsontree;
@@ -56,9 +56,9 @@ public:
                 std::cout << "+" << entity_id << "; " << saved_++ << " of " << id_list_.size() << "\n";
             }
         }
-        catch(...)
+        catch(boost::exception& ex)
         {
-            
+            std::cerr << "[error] " << boost::diagnostic_information(ex) << "\n";
         }
     }
 private:

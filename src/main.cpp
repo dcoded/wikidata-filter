@@ -26,8 +26,8 @@ int main(int argc, char* argv[])
 
     std::ifstream ids(idlist);
     std::for_each(std::istream_iterator<std::string>(ids),
-              std::istream_iterator<std::string>(),
-              [&wdf](std::string id) { wdf.add(id); });
+                  std::istream_iterator<std::string>(),
+                  [&wdf](std::string id) { wdf.add(id); });
 
     wdf.sort();
 
