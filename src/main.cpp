@@ -2,14 +2,32 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <exception>
+#include <algorithm>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
+
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 using boost::iostreams::input;
 using boost::iostreams::filtering_stream;
 
-void gunzip(const char*, filtering_stream<input>&);
-bool target(const std::string&, const std::vector<std::string>&);
+using boost::property_tree::ptree;
+using boost::property_tree::read_json;
+using boost::property_tree::write_json;
+
+#define PROPERTY_SUBCLASS_OF       "claims.P279"
+#define PROPERTY_SUBCLASS_OF_VALUE "mainsnak.datavalue.value.numeric-id"
+
+bool target(const ptree&, const std::vector<std::string>&);
+
+template<typename T>
+bool in_vector(const std::vector<T>& vector, const T item)
+{
+    auto it = std::find(vector.begin(), vector.end(), item);
+    return (it != vector.end());
+}
 
 int main(int argc, char** argv)
 {
@@ -22,6 +40,8 @@ int main(int argc, char** argv)
     const char* filename = argv[1];
     const char* category = argv[2];
 
+    std::ofstream matches(std::string(category) + ".json");
+
     std::ifstream file;
     file.exceptions(std::ios::failbit | std::ios::badbit);
     file.open(filename, std::ios_base::in | std::ios_base::binary);
@@ -31,36 +51,83 @@ int main(int argc, char** argv)
     decompressor.push(file);
 
     std::vector<std::string> categories = { category };
+    std::vector<std::string> matched    = { }; 
 
-    int i = 1;
-    for(std::string line; getline(decompressor, line); i++)
+    for(std::string line; getline(decompressor, line);)
     {
-        if(target(line, categories))
+        ptree jsontree;
+        std::istringstream ijsonstream (line);
+        read_json (ijsonstream, jsontree);
+
+        // get line id
+        std::string entity_id = jsontree.get<std::string>("id");
+        std::string subclass_id;
+
+        std::cout << "[" << entity_id << "]\n";
+
+        if (in_vector(categories, entity_id))
+            continue; // we already added it
+        
+        for(auto v : jsontree.get_child(PROPERTY_SUBCLASS_OF))
         {
-            std::cout << line << "\n";
+            subclass_id = v.second.get<std::string>(PROPERTY_SUBCLASS_OF_VALUE);
+
+            // is it a child of root target?
+            if (in_vector(categories, subclass_id))
+            {
+                std::cout << "+" << entity_id << " subclass_of " << subclass_id << "\n";
+                categories.push_back(entity_id);
+
+                decompressor.clear();
+                decompressor.seekg(0, std::ios::beg); // restart
+            }
         }
     }
+    std::cout << "**end**\n";
+
+    // int i = 1;
+    // for(std::string line; getline(decompressor, line); i++)
+    // {
+    //     ptree jsontree;
+    //     std::istringstream ijsonstream (line);
+    //     read_json (ijsonstream, jsontree);
+
+    //     if(target(jsontree, categories))
+    //     {
+    //         // restart from beginning...
+    //         decompressor.seekg (0, decompressor.end);
+
+    //         // save match to file
+    //         matches << line << "\n";
+
+    //         std::string entity_id = jsontree.get<std::string>("id");
+    //         categories.push_back(entity_id);
+
+
+    //         std::cout << "+" << entity_id.substr(1) << "\n";
+            
+    //     }
+    // }
+
+    matches.close();
 }
 
-void gunzip(const char* filename, filtering_stream<input>& decompressor)
+bool target(const ptree& jsontree, const std::vector<std::string>& categories)
 {
-    std::ifstream file;
-    file.exceptions(std::ios::failbit | std::ios::badbit);
-    file.open(filename, std::ios_base::in | std::ios_base::binary);
-
-    decompressor.push(boost::iostreams::gzip_decompressor());
-    decompressor.push(file);
-}
-
-bool target(const std::string& line, const std::vector<std::string>& categories)
-{
-    for(std::string category : categories)
+    std::string subclass_id;
+    for(auto v : jsontree.get_child(PROPERTY_SUBCLASS_OF))
     {
-        category = '"' + category + '"';
-        if(line.find(category) != std::string::npos)
-        {
-            return true;
-        }
+        subclass_id = v.second.get<std::string>(PROPERTY_SUBCLASS_OF_VALUE);
+
+        // is it a child of root target?
+        auto it = std::find(
+            categories.begin(),
+            categories.end(),
+            subclass_id);
+
+        // we found a target if its in the categories list
+        return (it != categories.end());
     }
+
     return false;
 }
